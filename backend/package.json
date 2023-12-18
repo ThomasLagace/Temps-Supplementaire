@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "npx nodemon server.js"
   },
   "name": "backend",
   "version": "1.0.0",
