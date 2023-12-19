@@ -14,7 +14,9 @@ db.serialize(() => {
         { id: 2, name: 'Jane Smith' },
         { id: 3, name: 'Michael Johnson' },
         { id: 4, name: 'Emily Davis' },
-        { id: 5, name: 'David Brown' }
+        { id: 5, name: 'David Brown' },
+        { id: 6, name: 'LMAO' },
+        { id: 7, name: 'HEY' }
     ]
     
     const overtimes = [
@@ -88,8 +90,19 @@ db.serialize(() => {
         db.run('INSERT INTO employees (name) VALUES (?)', [employee.name], (err) => {
             if (err) console.log(err);
         });
+        db.all('SELECT rowid AS id, * FROM employees', (err, rows) => {
+            if (err) console.log(err);
+            console.log(rows);
+        });
+        if (employee.id === 2 || employee.id === 4 || employee.id === 6 || employee.id === 7) {
+            db.run('DELETE FROM employees WHERE rowid = ?', [employee.id], (err) => {
+                if (err) console.log(err);
+            });
+        }
     });
-
+    
+    
+    
     overtimes.forEach((overtime) => {
         db.run('INSERT INTO overtimes (date, employees, opened, currentPriority) VALUES (?, ?, ?, ?)', [overtime.date, JSON.stringify(overtime.employees), overtime.opened, overtime.currentPriority], (err) => {
             if (err) console.log(err);
