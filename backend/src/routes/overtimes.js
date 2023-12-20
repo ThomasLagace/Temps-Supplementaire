@@ -176,15 +176,24 @@ route.post('/employees/update/:id', async (req, res) => {
                 return res.status(404).json({ error: 'Overtime not found' });
             }
             const allEmployees = await getTable('employees');
-            const allEmployeesIds = allEmployees.map((employee) => employee.id);
 
             const currentEmployees = JSON.parse(row.employees).sort((a, b) => a.priority - b.priority);
-            const currentEmployeeIds = currentEmployees.map((employee) => employee.id);
-            console.log(allEmployeesIds);
-            const updatedEmployees = currentEmployees.filter((employee) => allEmployeesIds.includes(employee.id));
-            const newEmployees = allEmployees.filter((employee) => !currentEmployeeIds.includes(employee.id));
+            const currentEmployeesIds = currentEmployees.map((employee) => employee.id);
 
-            console.log(updatedEmployees);
+            const newEmployees = allEmployees.filter((employee) => !currentEmployeesIds.includes(employee.id));
+            const updatedEmployees = [...currentEmployees, ...newEmployees].map((employee, index) => ({
+                ...employee,
+                name: employee.name,
+                priority: index + 1,
+                status: 'inconnu'
+            }));
+            
+            db.run('UPDATE overtimes SET employees = ? WHERE rowid = ?', [JSON.stringify(updatedEmployees), numberId], (err) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Error while updating employees' });
+                }
+                return res.status(200).json({ message: 'Employees updated successfully' });
+            });
         });
     });
 });
