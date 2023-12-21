@@ -81,7 +81,7 @@ const EmployeesOvertimeList = ({ employees, currentPriority, overtimeId }) => {
               <option value="non disponible">Non disponible</option>
               <option value="conge">Congé</option>
             </Form.Select>
-            <Button variant={employee.priority === currentPriority ? 'info' : 'secondary'} className="col-2" type="submit" disabled={employee.priority !== currentPriority}>Confimer</Button>{' '}
+            <Button variant={employee.priority === currentPriority ? 'info' : 'secondary'} className="col-2" type="submit" disabled={employee.priority !== currentPriority}>Confimer</Button>
           </ListGroup.Item>
         </form>
       ))}

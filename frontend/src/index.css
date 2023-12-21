@@ -4,3 +4,24 @@
 .bg-submited {
   background-color: #00ac00 !important;
 }
+
+[class^="pill-"] {
+  border-radius: 10px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+.pill-green {
+  background-color: #00ac00 !important;
+}
+.pill-red {
+  background-color: #ff0000 !important;
+}
+
+.danger-danger {
+  background-color: #ac0b0b !important;
+}
+.ouvrir-overtime {
+  background-color: #ff0000 !important;
+}

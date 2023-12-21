@@ -39,6 +39,13 @@ route.post('/', async (req, res) => {
     if (!createdDate) return res.status(400).json({ error: 'No date' });
     const lastOvertime = (await getTable('overtimes', {limit: 1, sortColumn: 'date', sortOrder: 'DESC'}))[0];
     const everyEmployees = await getTable('employees');
+    if (!lastOvertime) {
+        if(await insertRow('overtimes', {date: createdDate.toISOString(), employees: JSON.stringify(everyEmployees.map((employee, index) => ({...employee, priority: index + 1}))), opened: true, currentPriority: 1})) {
+            return res.status(200).json({message: "Table created"});
+        } else {
+            return res.status(500).json({ error: 'Error while inserting row' });
+        }
+    }
     const mappedLastOvertime = {
         ...lastOvertime,
         employees: JSON.parse(lastOvertime.employees)
@@ -74,9 +81,8 @@ route.delete('/:id', async (req, res) => {
         db.get('SELECT COUNT(*) AS count, opened FROM overtimes WHERE rowid = ?', [numberId], async (err, row) => {
             if (err) return res.status(500).json({ error: 'Error while deleting row' });
             else if (row.count === 0) return res.status(404).json({ error: 'Row not found' });
-            else if (!row.opened) return res.status(400).json({ error: 'Row is closed' });
             
-            db.run('DELETE FROM overtimes WHERE rowid = ? AND opened = ?', [numberId, true], async (err) => {
+            db.run('DELETE FROM overtimes WHERE rowid = ?', [numberId], async (err) => {
                 if (err) return res.status(500).json({ error: 'Error while deleting row' });
                 else return res.status(200).json({ message: 'Row deleted successfully' });
             });
@@ -153,6 +159,97 @@ route.patch('/:id/close', async (req, res) => {
         });
     });
     console.log(await getTable('overtimes'));
+});
+
+route.patch('/:id/open', async (req, res) => {
+    const { id } = req.params;
+
+    const numberId = parseInt(id);
+    if (!numberId) return res.status(400).json({ error: 'Invalid id' });
+
+    db.serialize(() => {
+        db.get('SELECT COUNT(*) AS count FROM overtimes WHERE rowid = ?', [numberId], (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: 'Error while checking overtime' });
+            }
+            if (row.count === 0) {
+                return res.status(404).json({ error: 'Overtime not found' });
+            }
+            db.run('UPDATE overtimes SET opened = 1 WHERE rowid = ?', [numberId], (err) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Error while opening overtime' });
+                }
+                return res.status(200).json({ message: 'Overtime opened successfully' });
+            });
+        });
+    });
+});
+
+route.patch('/:id/reset', async (req, res) => {
+    const { id } = req.params;
+
+    const numberId = parseInt(id);
+    if (!numberId) return res.status(400).json({ error: 'Invalid id' });
+
+    db.serialize(() => {
+        db.get('SELECT COUNT(*) AS count FROM overtimes WHERE rowid = ?', [numberId], (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: 'Error while checking overtime' });
+            }
+            if (row.count === 0) {
+                return res.status(404).json({ error: 'Overtime not found' });
+            }
+            db.get('SELECT * FROM overtimes WHERE rowid = ?', [numberId], (err, row) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Error while resetting overtime' });
+                }
+                const resetedEmployees = JSON.parse(row.employees).map(employee => ({...employee, status: 'inconnu'}));
+
+                db.run('UPDATE overtimes SET employees = ?, currentPriority = 1 WHERE rowid = ?', [JSON.stringify(resetedEmployees), numberId], (err) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Error while resetting overtime' });
+                    }
+                    return res.status(200).json({ message: 'Overtime reset successfully' });
+                });
+            });
+        });
+    });
+});
+
+route.patch('/:id/tohead', async (req, res) => {
+    const { id } = req.params;
+
+    const numberId = parseInt(id);
+    if (!numberId) return res.status(400).json({ error: 'Invalid id' });
+
+    db.serialize(() => {
+        db.get('SELECT COUNT(*) AS count FROM overtimes WHERE rowid = ?', [numberId], (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: 'Error while checking overtime' });
+            }
+            if (row.count === 0) {
+                return res.status(404).json({ error: 'Overtime not found' });
+            }
+            db.get('SELECT * FROM overtimes WHERE rowid = ?', [numberId], (err, row) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Error while to head overtime' });
+                }
+
+                db.run('DELETE FROM overtimes WHERE rowid = ?', [numberId], (err) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Error while to head overtime' });
+                    }
+                });
+
+                db.run('INSERT INTO overtimes (date, employees, opened, currentPriority) VALUES (?, ?, ?, ?)', [new Date().toISOString(), row.employees, row.opened, row.currentPriority], (err) => {
+                    if (err) {
+                        return res.status(500).json({ error: 'Error while to head overtime' });
+                    }
+                    return res.status(200).json({ message: 'Overtime to head successfully' });
+                });
+            });
+        });
+    });
 });
 
 route.post('/employees/update/:id', async (req, res) => {
