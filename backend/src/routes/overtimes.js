@@ -43,15 +43,9 @@ route.post('/', async (req, res) => {
         ...lastOvertime,
         employees: JSON.parse(lastOvertime.employees)
     };
-    const sortedEmployeesPriority = mappedLastOvertime.employees.sort((a, b) => {
-        if (a.status === 'inconnu') {
-            return -1;
-        } else if (b.status === 'inconnu') {
-            return 1;
-        } else {
-            return 0;
-        }
-    });
+    const employeesDidntWork = mappedLastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status === 'inconnu');
+    const employeesDidWork = mappedLastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status !== 'inconnu');
+    const sortedEmployeesPriority = [...employeesDidntWork, ...employeesDidWork];
 
     const existingEmployeeIds = everyEmployees.map(employee => employee.id);
     const filteredEmployees = sortedEmployeesPriority.filter(employee => existingEmployeeIds.includes(employee.id));

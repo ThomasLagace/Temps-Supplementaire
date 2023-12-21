@@ -5,7 +5,7 @@ import db from './modules/db.js';
 import Overtime from './src/models/overtimeModel.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // db.serialize(() => {
 //     // db.run("CREATE TABLE lorem (info TEXT)");
@@ -24,7 +24,8 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use((req, res, next) => {
-    console.log(req.path, req.method);
+    const date = new Date();
+    console.log(`${`${date.getDate()} ${date.getHours()}h:${date.getMinutes()}m:${date.getSeconds()}s ${date.getMilliseconds()}ms`} : [${req.method}] "${req.path}"`);
     next();
 });
 

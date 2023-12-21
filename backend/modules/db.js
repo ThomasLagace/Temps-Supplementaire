@@ -92,7 +92,7 @@ db.serialize(() => {
         });
         db.all('SELECT rowid AS id, * FROM employees', (err, rows) => {
             if (err) console.log(err);
-            console.log(rows);
+            // console.log(rows);
         });
         if (employee.id === 2 || employee.id === 4 || employee.id === 6 || employee.id === 7) {
             db.run('DELETE FROM employees WHERE rowid = ?', [employee.id], (err) => {
