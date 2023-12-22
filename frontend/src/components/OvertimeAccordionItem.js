@@ -143,7 +143,7 @@ const OffCanvas = ({ name, overtime }) => {
         </Offcanvas.Header>
         <Offcanvas.Body>
           <div className="d-flex gap-3">
-            <Button className="flex-fill" variant={overtime.opened ? 'success bg-submited' : 'danger ouvrir-overtime'}>{overtime.opened ? 'Résoudre le TS' : 'Réouvrir le TS'}</Button>
+            <Button className="flex-fill" variant={overtime.opened ? 'success bg-submited' : 'danger ouvrir-overtime'} onClick={overtime.opened ? handleOvertimeClose : handleOvertimeOpen}>{overtime.opened ? 'Résoudre le TS' : 'Réouvrir le TS'}</Button>
             <Button className="flex-fill danger-danger" variant="danger" onClick={handleOvertimeDelete}>Deleter le TS</Button>
             <Button className="flex-fill" variant="warning" onClick={handleOvertimeReset}>Reseter le TS</Button>
             <Button className="flex-fill" variant="info" onClick={handleOvertimeUpdate}>Updater le TS avec noms dans db</Button>
