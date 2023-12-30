@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "strict": true,
+    "outDir": "./build"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules/**/*"]
+}

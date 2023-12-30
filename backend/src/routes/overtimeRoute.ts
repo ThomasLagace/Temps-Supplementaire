@@ -1,76 +1,62 @@
 import express, { json } from 'express';
-import db from '../../modules/db.js';
-import getTable from '../../modules/getTable.js';
-import insertRow from '../../modules/insertRow.js';
+import { db } from '../modules/initDatabase.js';
+import { DatabaseError } from '../modules/Database.js';
+import EmployeeOvertime from '../models/employeeOvertimeInterface.js';
 
 const route = express.Router();
 
 route.get(['/', '/:limitparam'], async (req, res) => {
-    const { limitparam } = req.params;
-
-    if (!limitparam) {
-        const overtimes = await getTable('overtimes', { sortColumn: 'date', sortOrder: 'DESC' });
-
-        const mappedOvertimes = overtimes.map(overtime => ({
-            ...overtime,
-            employees: JSON.parse(overtime.employees)
-        }));
-
-        return res.json(mappedOvertimes);
-    } else {
-        const limit = parseInt(limitparam);
-        if (!isNaN(limit)) {
-            const overtimes = await getTable('overtimes', { limit, sortColumn: 'date', sortOrder: 'DESC' });
-
-            const mappedOvertimes = overtimes.map(overtime => ({
-                ...overtime,
-                employees: JSON.parse(overtime.employees)
-            }));
-
-            return res.status(200).json(mappedOvertimes);
-        } else {
-            return res.status(400).json({ error: 'Invalid limit parameter' });
-        }
+  const { limitparam } = req.params;
+  if (!limitparam) {
+    const overtimes = await db.getTable('overtimes', undefined, { columnName: 'date', sortType: 'DESC'});
+    if ((overtimes as DatabaseError).error) {
+      console.trace((overtimes as DatabaseError).message);
+      return res.status(500).json({ error: 'Database Error'});
     }
+    return res.status(200).json(overtimes);
+  }
+
+  const limit = parseInt(limitparam);
+  if (isNaN(limit)) return res.status(400).json({ error: 'Invalid limit parameter'});
+
+  const overtimes = await db.getTable('overtimes', undefined, { columnName: 'date', sortType: 'DESC' }, limit);
+  if ((overtimes as DatabaseError).error) {
+    console.trace((overtimes as DatabaseError).message);
+    return res.status(500).json({ error: 'Database Error'});
+  }
+  return res.status(200).json(overtimes);
 });
 
-route.post('/', async (req, res) => {
-    const createdDate = new Date();
-    if (!createdDate) return res.status(400).json({ error: 'No date' });
-    const lastOvertime = (await getTable('overtimes', {limit: 1, sortColumn: 'date', sortOrder: 'DESC'}))[0];
-    const everyEmployees = await getTable('employees');
-    if (!lastOvertime) {
-        if(await insertRow('overtimes', {date: createdDate.toISOString(), employees: JSON.stringify(everyEmployees.map((employee, index) => ({...employee, priority: index + 1}))), opened: true, currentPriority: 1})) {
-            return res.status(200).json({message: "Table created"});
-        } else {
-            return res.status(500).json({ error: 'Error while inserting row' });
-        }
-    }
-    const mappedLastOvertime = {
-        ...lastOvertime,
-        employees: JSON.parse(lastOvertime.employees)
-    };
-    const employeesDidntWork = mappedLastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status === 'inconnu');
-    const employeesDidWork = mappedLastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status !== 'inconnu');
-    const sortedEmployeesPriority = [...employeesDidntWork, ...employeesDidWork];
+route.post('/create', async (req, res) => {
+  const dbResponse = await db.getTable('overtimes', undefined, { columnName: 'date', sortType: 'DESC'}, 1);
+  if ((dbResponse as DatabaseError).error) {
+    console.trace((dbResponse as DatabaseError).message);
+    return res.status(500).json({ error: 'Database Error' });
+  }
+  
+  const everyEmployees = await db.getTable('employees');
+  if ((everyEmployees as DatabaseError).error) {
+    console.trace((everyEmployees as DatabaseError).message);
+    return res.status(500).json({ error: 'Database Error' });
+  }
 
-    const existingEmployeeIds = everyEmployees.map(employee => employee.id);
-    const filteredEmployees = sortedEmployeesPriority.filter(employee => existingEmployeeIds.includes(employee.id));
-
-    const newEmployeeIds = filteredEmployees.map(employee => employee.id);
-    const newEmployees = everyEmployees.filter(employee => !newEmployeeIds.includes(employee.id));
-    const updatedEmployees = [...filteredEmployees, ...newEmployees];
-
-    const newEmployeesPriority = updatedEmployees.map((employee, index) => ({
-        ...employee,
-        priority: index + 1,
-        status: 'inconnu'
+  const lastOvertime = (dbResponse as Object[])[0];
+  if (!lastOvertime) {
+    
+    const employeesList: EmployeeOvertime[] = (everyEmployees as Object[]).map((employee, index) => ({
+      name: employee.name, priority: index + 1, status: 'inconnu' 
     }));
-    
-    const goneThru = await insertRow('overtimes', {date: createdDate.toISOString(), employees: JSON.stringify(newEmployeesPriority), opened: true, currentPriority: 1});
-    
-    if (!goneThru) return res.status(500).json({ error: 'Error while inserting row' });
-    else return res.status(200).json({message: "Table created"});
+    const dbResponse = await db.insertRow('overtimes', {
+      date: new Date(), employees: employeesList, opened: true, currentPriority: 1
+    });
+    if (dbResponse.error) {
+      console.trace(dbResponse.message);
+      return res.status(500).json({ error: 'Database Error' });
+    }
+    return res.status(200).json({ message: 'Overtime was created' });
+  }
+
+
 });
 
 route.delete('/:id', async (req, res) => {
