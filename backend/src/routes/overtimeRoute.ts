@@ -56,7 +56,32 @@ route.post('/create', async (req, res) => {
     return res.status(200).json({ message: 'Overtime was created' });
   }
 
+  const employeesDidntWork = lastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status === 'inconnu');
+  const employeesDidWork = lastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status !== 'inconnu');
+  const sortedEmployeesPriority = [...employeesDidntWork, ...employeesDidWork];
 
+  const existingEmployeeIds = everyEmployees.map(employee => employee.id);
+  const filteredEmployees = sortedEmployeesPriority.filter(employee => existingEmployeeIds.includes(employee.id));
+
+  const newEmployeeIds = filteredEmployees.map(employee => employee.id);
+  const newEmployees = everyEmployees.filter(employee => !newEmployeeIds.includes(employee.id));
+  const updatedEmployees = [...filteredEmployees, ...newEmployees];
+
+  const newEmployeesPriority = updatedEmployees.map((employee, index) => ({
+    ...employee,
+    priority: index + 1,
+    status: 'inconnu'
+  }));
+  
+  const response = await db.insertRow('overtimes', {
+    date: new Date(), employees: newEmployeesPriority, opened: true, currentPriority: 1
+  });
+
+  if (response.error) {
+    console.trace(response.message);
+    return res.status(500).json({ error: 'Database Error' });
+  }
+  return res.status(200).json({ message: 'Overtime was created' });
 });
 
 route.delete('/:id', async (req, res) => {
