@@ -1,7 +1,9 @@
 import express, { json } from 'express';
 import { db } from '../modules/initDatabase.js';
 import { DatabaseError } from '../modules/Database.js';
-import EmployeeOvertime from '../models/employeeOvertimeInterface.js';
+import { EmployeeInterface } from '../models/employeeModel.js';
+import employeeOvertimeInterface from '../models/employeeOvertimeInterface.js';
+import { OvertimeInterface } from '../models/overtimeModel.js';
 
 const route = express.Router();
 
@@ -40,34 +42,40 @@ route.post('/create', async (req, res) => {
     return res.status(500).json({ error: 'Database Error' });
   }
 
-  const lastOvertime = (dbResponse as Object[])[0];
+  const lastOvertime: any = (dbResponse as Object[])[0];
   if (!lastOvertime) {
-    
-    const employeesList: EmployeeOvertime[] = (everyEmployees as Object[]).map((employee, index) => ({
-      name: employee.name, priority: index + 1, status: 'inconnu' 
+    const employeesList: employeeOvertimeInterface[] = (everyEmployees as Object[]).map((employee: any, index: number) => ({
+      id: employee.id,
+      name: employee.name,
+      priority: index + 1,
+      status: 'inconnu', 
     }));
+
     const dbResponse = await db.insertRow('overtimes', {
       date: new Date(), employees: employeesList, opened: true, currentPriority: 1
     });
+
     if (dbResponse.error) {
       console.trace(dbResponse.message);
       return res.status(500).json({ error: 'Database Error' });
     }
+
     return res.status(200).json({ message: 'Overtime was created' });
   }
 
-  const employeesDidntWork = lastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status === 'inconnu');
-  const employeesDidWork = lastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status !== 'inconnu');
+  const lastEmployees: employeeOvertimeInterface[] = lastOvertime.employees;
+  const employeesDidntWork = lastEmployees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status === 'inconnu');
+  const employeesDidWork = lastEmployees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status !== 'inconnu');
   const sortedEmployeesPriority = [...employeesDidntWork, ...employeesDidWork];
 
-  const existingEmployeeIds = everyEmployees.map(employee => employee.id);
-  const filteredEmployees = sortedEmployeesPriority.filter(employee => existingEmployeeIds.includes(employee.id));
+  const existingEmployeesIDs = (everyEmployees as EmployeeInterface[]).map(employee => employee.id);
+  const filteredEmployees = sortedEmployeesPriority.filter(employee => existingEmployeesIDs.includes(employee.id));
 
-  const newEmployeeIds = filteredEmployees.map(employee => employee.id);
-  const newEmployees = everyEmployees.filter(employee => !newEmployeeIds.includes(employee.id));
+  const newEmployeesIDs = filteredEmployees.map(employee => employee.id);
+  const newEmployees = (everyEmployees as EmployeeInterface[]).filter(employee => !newEmployeesIDs.includes(employee.id));
   const updatedEmployees = [...filteredEmployees, ...newEmployees];
 
-  const newEmployeesPriority = updatedEmployees.map((employee, index) => ({
+  const newEmployeesPriority: employeeOvertimeInterface[] = updatedEmployees.map((employee, index) => ({
     ...employee,
     priority: index + 1,
     status: 'inconnu'

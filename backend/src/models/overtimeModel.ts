@@ -1,6 +1,7 @@
 import { TableModel } from '../modules/Database.js';
+import employeeOvertimeInterface from './employeeOvertimeInterface.js';
 
-const overtimeModel: TableModel = {
+export const overtimeModel: TableModel = {
   name: 'overtimes',
   columns: [
     {
@@ -24,6 +25,12 @@ const overtimeModel: TableModel = {
       required: true
     }
   ]
-}
+};
 
-export default overtimeModel;
+export interface OvertimeInterface {
+  id: number,
+  date: Date,
+  employees: employeeOvertimeInterface[],
+  opened: boolean,
+  currentPriority: number,
+};

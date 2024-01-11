@@ -1,6 +1,6 @@
 import { TableModel } from '../modules/Database.js';
 
-const employeeModel: TableModel = {
+export const employeeModel: TableModel = {
   name: 'employees',
   columns: [
     {
@@ -9,6 +9,9 @@ const employeeModel: TableModel = {
       required: true
     }
   ]
-}
+};
 
-export default employeeModel;
+export interface EmployeeInterface {
+  id: number,
+  name: string,
+};

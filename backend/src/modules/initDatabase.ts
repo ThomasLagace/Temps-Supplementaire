@@ -1,6 +1,6 @@
 import { Database } from './Database.js';
-import employeeModel from '../models/employeeModel.js';
-import overtimeModel from '../models/overtimeModel.js';
+import { employeeModel } from '../models/employeeModel.js';
+import { overtimeModel } from '../models/overtimeModel.js';
 
 const db = new Database(":memory:");
 
