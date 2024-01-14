@@ -92,36 +92,29 @@ route.post('/create', async (req, res) => {
   return res.status(200).json({ message: 'Overtime was created' });
 });
 
-route.delete('/:id', async (req, res) => {
-    const { id } = req.params;
-    const numberId = parseInt(id);
-    if (!numberId) return res.status(400).json({ error: 'No id' });
-    db.serialize(() => {
-        db.get('SELECT COUNT(*) AS count, opened FROM overtimes WHERE rowid = ?', [numberId], async (err, row) => {
-            if (err) return res.status(500).json({ error: 'Error while deleting row' });
-            else if (row.count === 0) return res.status(404).json({ error: 'Row not found' });
-            
-            db.run('DELETE FROM overtimes WHERE rowid = ?', [numberId], async (err) => {
-                if (err) return res.status(500).json({ error: 'Error while deleting row' });
-                else return res.status(200).json({ message: 'Row deleted successfully' });
-            });
-        });
-    });
+route.delete('/remove/:idParam', async (req, res) => {
+    const { idParam } = req.params;
+    const id = parseInt(idParam);
+    if (id === undefined) return res.status(400).json({ error: 'No id provided' });
+    
+    const dbResponse = await db.deleteRowByID('overtimes', id);
+    if (dbResponse.error) return res.status(500).json({ error: 'Database Error' });
+    return res.status(200).json({ message: 'Row deleted' });
 });
 
-route.patch('/:id', async (req, res) => {
-    const { id } = req.params;
+route.patch('/change/:idParam', async (req, res) => {
+    const { idParam } = req.params;
     const { employee } = req.body;
 
-    const numberId = parseInt(id);
-    if (!numberId) return res.status(400).json({ error: 'Invalid id' });
+    const id = parseInt(idParam);
+    if (!id) return res.status(400).json({ error: 'No id provided' });
 
     if (!employee || !employee.id || !employee.status) {
         return res.status(400).json({ error: 'Invalid employee data' });
     }
 
     db.serialize(() => {
-        db.get('SELECT * FROM overtimes WHERE rowid = ?', [numberId], async (err, overtime) => {
+        db.get('SELECT * FROM overtimes WHERE rowid = ?', [id], async (err, overtime) => {
             if (err) return res.status(500).json({ error: 'Error while retrieving overtime' });
             if (!overtime) return res.status(404).json({ error: 'Row not found' });
             if (!overtime.opened) return res.status(400).json({ error: 'Row is closed' });
@@ -140,11 +133,11 @@ route.patch('/:id', async (req, res) => {
             });
 
             const updateQuery = `UPDATE overtimes SET employees = ? WHERE rowid = ?`;
-            db.run(updateQuery, [JSON.stringify(updatedEmployees), numberId], (err) => {
+            db.run(updateQuery, [JSON.stringify(updatedEmployees), id], (err) => {
                 if (err) {
                     return res.status(500).json({ error: 'Error while updating employee priority' });
                 }
-                db.run('UPDATE overtimes SET currentPriority = currentPriority + 1 WHERE rowid = ?', [numberId], (err) => {
+                db.run('UPDATE overtimes SET currentPriority = currentPriority + 1 WHERE rowid = ?', [id], (err) => {
                     if (err) {
                         return res.status(500).json({ error: 'Error while updating employee priority' });
                     }
