@@ -7,10 +7,11 @@ import db from './database.js';
  * @param {number} [limit=null] The limit of objects being returned by the database 
  * @param {string} [sortColumn=null] The column to sort by 
  * @param {('ASC'|'DESC')} [sortOrder='ASC'] How the column is sorted, ascending or descending
+ * @param {Object} [where=null] 
  * @returns {(Promise<Array>|Promise<Error>)} An array of elements in the table or database Error
  */
-export async function getTable(tableName, limit = null, sortColumn = null, sortOrder = 'ASC') {
-  const query = `SELECT rowid AS id, * FROM ${tableName}${sortColumn ? ` ORDER BY ${sortColumn} ${sortOrder}` : ''}${limit ? ` LIMIT ${limit}` : ''}`;
+export async function getTable(tableName, limit = null, sortColumn = null, sortOrder = 'ASC', where = null) {
+  const query = `SELECT * FROM ${tableName}${where ? ` WHERE ${Object.keys(where)[0]} = ${Object.values(where)[0]}` : ''}${sortColumn ? ` ORDER BY ${sortColumn} ${sortOrder}` : ''}${limit ? ` LIMIT ${limit}` : ''}`;
 
   return await new Promise((resolve, reject) => {
     db.serialize(() => {
@@ -35,8 +36,7 @@ export async function getTable(tableName, limit = null, sortColumn = null, sortO
  */
 export async function insertRow(tableName, data) {
   const columns = Object.keys(data).join(', ');
-
-  const query = `INSERT INTO ${tableName} (${columns}) VALUES (${data.map(() => '?').join(', ')})`
+  const query = `INSERT INTO ${tableName} (${columns}) VALUES (${Object.values(data).map(() => '?').join(', ')})`
 
   return await new Promise((resolve, reject) => {
     db.run(query, Object.values(data), (err) => {

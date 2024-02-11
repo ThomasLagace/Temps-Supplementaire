@@ -4,18 +4,107 @@ import { insertRow, getTable } from '../../modules/databaseHelperFunctions.js';
 
 const route = express.Router();
 
+/**
+ * 
+ * @param {Array<Object>} employeesTable 
+ * @param {Array<Object>} lastAvailabilities 
+ */
+function nextEmployees(employeesTable, lastAvailabilities) {
+  /**
+   * @todo Code the function
+   */
+  console.log(employeesTable);
+  console.log(lastAvailabilities);
+  const lastAvailabilitiesLastEmployees = lastAvailabilities.filter(availability => {
+    return employeesTable.some(employee => employee.id == availability.employeeID);
+  })
+  .map(availability => {
+    const employee = employeesTable.find(employee => employee.id == availability.employeeID);
+    return {
+      ...employee,
+      status: availability.status,
+      priority: availability.priority,
+    }
+  })
+  .sort((a, b) => a.priority - b.priority);
+
+  
+
+  console.log(lastAvailabilitiesLastEmployees);
+}
+
+/**
+ * 
+ * @async
+ * @throws Error from the sqlite3 database
+ * @param {number} limit 
+ * @returns {Object} An object with all the overtimes
+ */
+async function getOvertimesAsJson(limit = null) {
+  const overtimes = await getTable('Overtimes', limit, 'date', 'DESC');
+  if (overtimes instanceof Error) throw overtimes;
+  
+  const jsonResponse = await Promise.all(overtimes.map(async overtime => {
+    const availabilities = await getTable('Availability', null, 'priority', 'ASC', { overtimeID: overtime.id });
+    if (availabilities instanceof Error) throw availabilities;
+
+    const employees =  await Promise.all(availabilities.map(async availability => {
+      const employee = (await getTable('Employees', 1, null, 'ASC', { id: availability.employeeID}))[0];
+      if (employee instanceof Error) throw employee;
+
+      return {
+        name: employee.name,
+        status: availability.status,
+        priority: availability.priority,
+      };
+    }));
+    
+    return {
+      date: overtime.date,
+      employees,
+    }
+  }));
+  
+  return jsonResponse;
+}
+
+async function createAndInsertNewOvertime(date, employees) {
+  const insertingOvertime = await insertRow('Overtimes', { date });
+  if (insertingOvertime instanceof Error) throw insertingOvertime;
+
+  const createdOvertime = (await getTable('Overtimes', 1, null, 'ASC', { date: date }))[0];
+
+  employees.forEach(async (employee, index) => {
+    const insertingAvailability = await insertRow('Availability', 
+    {
+      employeeID: employee.id,
+      overtimeID: createdOvertime.id,
+      priority: employee.priority || index + 1,
+    });
+
+    if (insertingAvailability instanceof Error) throw insertingAvailability;
+  });
+}
+
+route.get('/test', async (req, res) => {
+  db.serialize(() => {
+    db.run('INSERT INTO Employees (name) VALUES ("TEST")')
+    db.run('DELETE FROM Employees WHERE id IN (1, 3, 5)', (err) => { if (err) console.trace(err) });
+  });
+  res.sendStatus(200);
+});
+
 route.get(['/', '/:limitParam'], async (req, res) => {
   const { limitParam } = req.params;
 
   if (!limitParam) {
-    const overtimes = await getTable('overtimes', sortColumn = 'date', sortOrder = 'DESC');
-    
-    const convertedEmployeesOvertimes = overtimes.map(overtime => ({
-      ...overtime,
-      employees: JSON.parse(overtime.employees)
-    }));
-
-    return res.json(convertedEmployeesOvertimes);
+    try {
+      const jsonResponse = await getOvertimesAsJson();
+      return res.status(200).json(jsonResponse);
+    } catch (error) {
+      console.trace(error);
+      return res.status(500).json({ error: 'Internal server Error' });
+    }
   }
 
   const limit = parseInt(limitParam);
@@ -23,64 +112,59 @@ route.get(['/', '/:limitParam'], async (req, res) => {
     return res.status(400).json({ error: 'Invalid limit parameter' });
   }
 
-  const overtimes = await getTable('overtimes', limit, sortColumn = 'date', sortOrder = 'DESC');
-
-  const convertedEmployeesOvertimes = overtimes.map(overtime => ({
-    ...overtime,
-    employees: JSON.parse(overtime.employees)
-  }));
-
-  return res.status(200).json(convertedEmployeesOvertimes);
+  try {
+    const jsonResponse = await getOvertimesAsJson(limit);
+    return res.status(200).json(jsonResponse);
+  } catch (error) {
+    console.trace(error);
+    return res.status(500).json({ error: 'Internal server Error' });
+  }
 });
 
 route.post('/create', async (req, res) => {
-  const createdDate = new Date();
+  const createdDate = new Date().getTime();
 
-  const lastOvertime = (await getTable('overtimes', limit = 1, sortColumn = 'date', sortOrder = 'DESC'))[0];
-  const everyEmployees = await getTable('employees');
+  const lastOvertime = (await getTable('Overtimes', 1, 'date', 'DESC'))[0];
+  const employees = await getTable('Employees');
   if (!lastOvertime) {
-    const dbResponse = await insertRow('overtimes',
-    {
-      date: createdDate.toISOString(),
-      employees: JSON.stringify(everyEmployees.map((employee, index) => ({...employee, priority: index + 1}))),
-      opened: true,
-      currentIndexPriority: 1
-    });
-
-    if (typeof(dbResponse) == Error) {
-      return res.status(500).json({ error: 'Error while inserting row' });
+    try {
+      createAndInsertNewOvertime(createdDate, employees);
+      return res.sendStatus(200);
+    } catch (error) {
+      console.trace(error);
+      return res.status(500).json({ error: 'Internal server Error'});
     }
-    
-    return res.status(200).json({ message: 'Overtime created' });
   }
-  /**
-   * @todo Cleanup by putting this in a function
-   */
-  const mappedLastOvertime = {
-    ...lastOvertime,
-    employees: JSON.parse(lastOvertime.employees)
-  };
-  const employeesDidntWork = mappedLastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status === 'inconnu');
-  const employeesDidWork = mappedLastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status !== 'inconnu');
-  const sortedEmployeesPriority = [...employeesDidntWork, ...employeesDidWork];
 
-  const existingEmployeeIds = everyEmployees.map(employee => employee.id);
-  const filteredEmployees = sortedEmployeesPriority.filter(employee => existingEmployeeIds.includes(employee.id));
+  const lastAvailabilities = await getTable('Availability', null, null, 'ASC', { overtimeID: lastOvertime.id });
 
-  const newEmployeeIds = filteredEmployees.map(employee => employee.id);
-  const newEmployees = everyEmployees.filter(employee => !newEmployeeIds.includes(employee.id));
-  const updatedEmployees = [...filteredEmployees, ...newEmployees];
-
-  const newEmployeesPriority = updatedEmployees.map((employee, index) => ({
-    ...employee,
-    priority: index + 1,
-    status: 'inconnu'
-  }));
+  nextEmployees(employees, lastAvailabilities);
   
-  const goneThru = await insertRow('overtimes', {date: createdDate.toISOString(), employees: JSON.stringify(newEmployeesPriority), opened: true, currentPriority: 1});
+  // const mappedLastOvertime = {
+  //   ...lastOvertime,
+  //   employees: JSON.parse(lastOvertime.employees)
+  // };
+  // const employeesDidntWork = mappedLastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status === 'inconnu');
+  // const employeesDidWork = mappedLastOvertime.employees.sort((a, b) => a.priority - b.priority).filter(employee => employee.status !== 'inconnu');
+  // const sortedEmployeesPriority = [...employeesDidntWork, ...employeesDidWork];
+
+  // const existingEmployeeIds = everyEmployees.map(employee => employee.id);
+  // const filteredEmployees = sortedEmployeesPriority.filter(employee => existingEmployeeIds.includes(employee.id));
+
+  // const newEmployeeIds = filteredEmployees.map(employee => employee.id);
+  // const newEmployees = everyEmployees.filter(employee => !newEmployeeIds.includes(employee.id));
+  // const updatedEmployees = [...filteredEmployees, ...newEmployees];
+
+  // const newEmployeesPriority = updatedEmployees.map((employee, index) => ({
+  //   ...employee,
+  //   priority: index + 1,
+  //   status: 'inconnu'
+  // }));
   
-  if (!goneThru) return res.status(500).json({ error: 'Error while inserting row' });
-  else return res.status(200).json({message: "Table created"});
+  // const goneThru = await insertRow('overtimes', {date: createdDate.toISOString(), employees: JSON.stringify(newEmployeesPriority), opened: true, currentPriority: 1});
+  
+  // if (!goneThru) return res.status(500).json({ error: 'Error while inserting row' });
+  // else return res.status(200).json({message: "Table created"});
 });
 
 route.delete('/:id', async (req, res) => {
