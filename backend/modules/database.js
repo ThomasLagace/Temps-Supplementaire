@@ -3,16 +3,16 @@ import fs from 'fs';
 const db = new sqlite.Database(process.env.DB_PATH || ':memory:');
 
 db.serialize(() => {
-  db.run('CREATE TABLE IF NOT EXISTS Employees (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(255) NOT NULL)', (err) => { if(err) console.trace(err) });
-  db.run('CREATE TABLE IF NOT EXISTS Overtimes (id INTEGER PRIMARY KEY AUTOINCREMENT, date DATE NOT NULL)', (err) => { if(err) console.trace(err) });
-  db.run('CREATE TABLE IF NOT EXISTS Availability\
+  db.run('CREATE TABLE IF NOT EXISTS employees (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(255) NOT NULL)', (err) => { if(err) console.trace(err) });
+  db.run('CREATE TABLE IF NOT EXISTS overtimes (id INTEGER PRIMARY KEY AUTOINCREMENT, date DATE NOT NULL)', (err) => { if(err) console.trace(err) });
+  db.run('CREATE TABLE IF NOT EXISTS availability\
   (\
     id INTEGER PRIMARY KEY AUTOINCREMENT,\
     employeeID INTEGER NOT NULL,\
     overtimeID INTEGER NOT NULL,\
     status VARCHAR(15),\
     priority INTEGER NOT NULL,\
-    FOREIGN KEY (employeeID) REFERENCES Employees(employeeID),\
+    FOREIGN KEY (employeeID) REFERENCES employees(employeeID),\
     FOREIGN KEY (overtimeID) REFERENCES overtimes(overtimeID)\
   )', (err) => { if(err) console.trace(err) });
 });
@@ -25,9 +25,9 @@ db.serialize(() => {
     }
     const jsonData = JSON.parse(data);
     db.serialize(() => {
-      db.run('DELETE FROM Employees', (err) => { if(err) console.trace(err) });
+      db.run('DELETE FROM employees', (err) => { if(err) console.trace(err) });
       jsonData.employees.forEach((employee) => {
-        db.run('INSERT INTO Employees (name) VALUES (?)', [employee.name], (err) => { if(err) console.trace(err) });
+        db.run('INSERT INTO employees (name) VALUES (?)', [employee.name], (err) => { if(err) console.trace(err) });
       });
       
       
